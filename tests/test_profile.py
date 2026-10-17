@@ -10,6 +10,46 @@ from test_widget import table
 
 
 class ProfileTests(unittest.TestCase):
+    def test_animation_interruptions_keep_latest_driver_and_stop_on_close(self):
+        from PySide6.QtCore import QAbstractAnimation, QBuffer, QIODevice
+        from PySide6.QtGui import QImage, QColor
+        from PySide6.QtTest import QTest
+        app = QApplication.instance() or QApplication([])
+        window = StandingsWindow(False)
+        window.current_season, window.current_round = "2025", 3
+        image = QImage(24, 24, QImage.Format.Format_ARGB32)
+        image.fill(QColor('red'))
+        buffer = QBuffer()
+        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        image.save(buffer, 'PNG')
+        portrait = bytes(buffer.data())
+        entries = parse_entries(table(4), 'drivers')
+        for entry in entries:
+            key = (entry.identity, '2025', 3)
+            window.profile_results[key] = {'starts': 3, 'wins': [], 'podiums': 0, 'source': 'Saved'}
+            window.portraits[key] = portrait
+        for entry in entries * 20:
+            window.select_driver(entry)
+            QTest.qWait(2)
+        final_key = (entries[-1].identity, '2025', 3)
+        self.assertEqual(window.selected_driver, final_key)
+        self.assertIn(entries[-1].code, window.card.title.text())
+        window.portrait_loaded((entries[0].identity, '2025', 3), b'late invalid photo')
+        self.assertFalse(window.card.portrait.image.isNull())
+        QTest.qWait(240)
+        self.assertAlmostEqual(window.card.text_opacity.opacity(), 1)
+        self.assertAlmostEqual(window.card.portrait.progress, 1)
+        window.select_driver(entries[0])
+        window.close_card()
+        QTest.qWait(240)
+        self.assertFalse(window.card.isVisible())
+        self.assertEqual(window.card.text_motion.state(), QAbstractAnimation.State.Stopped)
+        self.assertEqual(window.card.portrait.motion.state(), QAbstractAnimation.State.Stopped)
+        self.assertEqual(window.height(), 520)
+        window.timer.stop()
+        window.tray.hide()
+        window.hide()
+
     def test_top_four_expand_and_collapse_without_layout_drift(self):
         from PySide6.QtCore import Qt
         from PySide6.QtTest import QTest

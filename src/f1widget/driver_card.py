@@ -1,9 +1,10 @@
 """Expandable driver card and its background loader."""
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QPixmap
 from pathlib import Path
-from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QGraphicsOpacityEffect
 from .theme import TEAM_COLORS
+from .motion import AnimatedPortrait
 
 
 class ProfileWorker(QThread):
@@ -37,6 +38,12 @@ class DriverCard(QFrame):
         body.setSpacing(6)
         info_panel = QWidget()
         info_panel.setFixedWidth(118)
+        self.text_opacity = QGraphicsOpacityEffect(info_panel)
+        self.text_opacity.setOpacity(1.0)
+        info_panel.setGraphicsEffect(self.text_opacity)
+        self.text_motion = QPropertyAnimation(self.text_opacity, b"opacity", self)
+        self.text_motion.setDuration(160)
+        self.text_motion.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.info = QVBoxLayout(info_panel)
         self.info.setContentsMargins(0, 0, 0, 0)
         self.info.setSpacing(6)
@@ -65,7 +72,7 @@ class DriverCard(QFrame):
                 self.info.addWidget(self.win_race)
         self.info.addStretch()
         body.addWidget(info_panel)
-        self.portrait = QLabel("Loading photo…")
+        self.portrait = AnimatedPortrait("Loading photo…")
         self.portrait.setFixedSize(130, 170)
         self.portrait.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.portrait.setWordWrap(True)
@@ -83,6 +90,7 @@ class DriverCard(QFrame):
         self.close_button.raise_()
 
     def set_driver(self, entry, season, round_number):
+        self.stop_motion()
         self.custom_portrait = (Path(__file__).parent / "assets" / "portraits" / f"{entry.identity}.png").is_file()
         color = TEAM_COLORS.get(entry.team_id, "#8290A5")
         self.setStyleSheet(f"QFrame#driverCard {{ background: #191E27; border-left: 3px solid {color}; border-radius: 3px; }}")
@@ -101,6 +109,15 @@ class DriverCard(QFrame):
         self.portrait.setStyleSheet("background: transparent; color: #818B9C; font-size: 10px;")
         self.portrait.setToolTip(entry.name)
         self.source.setText(f"{season} · THROUGH ROUND {round_number} · LOADING")
+        self.text_opacity.setOpacity(0.35)
+        self.text_motion.setStartValue(0.35)
+        self.text_motion.setEndValue(1.0)
+        self.text_motion.start()
+
+    def stop_motion(self):
+        self.text_motion.stop()
+        self.text_opacity.setOpacity(1.0)
+        self.portrait.finish_motion()
 
     def set_stats(self, data):
         if data is None:
@@ -128,6 +145,6 @@ class DriverCard(QFrame):
                 height = int(pixmap.height() * 0.82)
                 width = min(pixmap.width(), int(height * 130 / 170))
                 pixmap = pixmap.copy((pixmap.width() - width) // 2, 0, width, height)
-            self.portrait.setPixmap(pixmap.scaled(130, 170, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            self.portrait.present(pixmap.scaled(130, 170, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         else:
             self.portrait.setText("Photo unavailable")

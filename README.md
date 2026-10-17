@@ -56,6 +56,12 @@ on UniqRenders retain OpenF1 headshots as a fallback. Missing photos and offline
 data are explicitly indicated. Portrait uniforms may differ from the selected
 season's team; the live team label always comes from standings.
 
+Rows fade on hover (120 ms), driver details fade in when switching (160 ms), and
+portraits fade in with an 8 px slide (200 ms). Animations affect painting only;
+window and list geometry are not animated. A new selection interrupts existing
+motion immediately, stale network responses are ignored, and closing the card
+cancels its animations.
+
 ## Data
 
 Driver rows show the permanent driver number supplied by Jolpica, alongside the

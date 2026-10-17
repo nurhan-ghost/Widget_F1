@@ -14,6 +14,7 @@ from .theme import STYLE, TEAM_COLORS
 from .fonts import interface_font
 from .profile import ProfileService
 from .driver_card import DriverCard, ProfileWorker
+from .motion import HoverRow
 
 ROW_HEIGHT = 48
 
@@ -261,9 +262,8 @@ class StandingsWindow(QWidget):
         rows.setContentsMargins(0, 0, 0, 0)
         rows.setSpacing(0)
         for entry in entries:
-            row = QFrame(objectName="standingRow")
+            row = HoverRow()
             row.setFixedHeight(ROW_HEIGHT)
-            row.setStyleSheet("QFrame#standingRow { background: #191E27; border-bottom: 1px solid #292F3A; border-radius: 0; }")
             line = QHBoxLayout(row)
             line.setContentsMargins(6, 0, 0, 0)
             line.setSpacing(0)
@@ -301,6 +301,11 @@ class StandingsWindow(QWidget):
             if self.mode == "teams":
                 name.setText(name.fontMetrics().elidedText(entry.name.upper(), Qt.TextElideMode.ElideRight, 126))
             name.setToolTip(f"{entry.name} · {entry.team}")
+            if self.mode == "drivers":
+                color = TEAM_COLORS.get(entry.team_id, '#EEF1F5')
+                for button in (number, name):
+                    # Scope the existing declarations before adding hover rules.
+                    button.setStyleSheet(f"QPushButton {{ {button.styleSheet()} }} QPushButton:hover {{ color: {color}; }}")
             identity_layout.addWidget(name)
             line.addWidget(identity)
             points = label(f"{entry.points:g}", 57)
@@ -315,6 +320,7 @@ class StandingsWindow(QWidget):
 
     def close_card(self):
         self.selected_driver = None
+        self.card.stop_motion()
         self.set_card_expanded(False)
 
     def resizeEvent(self, event):
