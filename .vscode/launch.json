@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "configurations": [{
+    "name": "F1 Widget",
+    "type": "debugpy",
+    "request": "launch",
+    "module": "f1widget",
+    "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+    "console": "integratedTerminal"
+  }]
+}
