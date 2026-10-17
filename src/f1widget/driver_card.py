@@ -2,7 +2,7 @@
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
 from pathlib import Path
-from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout
+from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget
 from .theme import TEAM_COLORS
 
 
@@ -35,7 +35,10 @@ class DriverCard(QFrame):
         layout.setSpacing(6)
         body = QHBoxLayout()
         body.setSpacing(6)
-        self.info = QVBoxLayout()
+        info_panel = QWidget()
+        info_panel.setFixedWidth(118)
+        self.info = QVBoxLayout(info_panel)
+        self.info.setContentsMargins(0, 0, 0, 0)
         self.info.setSpacing(6)
         self.title = QLabel()
         self.title.setStyleSheet("font-size: 22px;")
@@ -61,13 +64,13 @@ class DriverCard(QFrame):
             if widget is self.wins:
                 self.info.addWidget(self.win_race)
         self.info.addStretch()
-        body.addLayout(self.info, 1)
+        body.addWidget(info_panel)
         self.portrait = QLabel("Loading photo…")
         self.portrait.setFixedSize(130, 170)
         self.portrait.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.portrait.setWordWrap(True)
         body.addWidget(self.portrait, 0, Qt.AlignmentFlag.AlignTop)
-        body.addSpacing(14)
+        body.addStretch(1)
         layout.addLayout(body)
         self.source = QLabel()
         self.source.setOpenExternalLinks(True)
