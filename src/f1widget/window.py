@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, QThread, Signal, QStandardPaths, QTimer, QSetting
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication, QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QScrollArea, QButtonGroup, QSystemTrayIcon, QMenu,
+    QScrollArea, QButtonGroup, QSystemTrayIcon, QMenu, QLayout,
 )
 from .models import parse_entries, gap
 from .service import StandingsService
@@ -48,7 +48,8 @@ class StandingsWindow(QWidget):
         self.setWindowTitle("F1 Standings")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(390, 520)
+        self.setFixedWidth(390)
+        self.resize(390, 520)
         family = interface_font().replace("'", "\\'")
         self.setStyleSheet(STYLE.replace("'Segoe UI'", f"'{family}'"))
         self.settings = QSettings()
@@ -61,12 +62,14 @@ class StandingsWindow(QWidget):
         self.pending_quit = False
         self.service = StandingsService(Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppLocalDataLocation)))
         self.profile_service = ProfileService(self.service.cache_dir)
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        panel = QFrame(objectName="panel")
+        # The native window owns its height. A top-level layout must not send
+        # competing minimum-size changes while a card is being hidden/shown.
+        panel = QFrame(self, objectName="panel")
         self.panel = panel
-        root.addWidget(panel)
+        panel.setGeometry(self.rect())
         layout = QVBoxLayout(panel)
+        layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.setContentsMargins(18, 16, 18, 14)
         layout.setSpacing(10)
         top = QHBoxLayout()
@@ -314,14 +317,19 @@ class StandingsWindow(QWidget):
         self.selected_driver = None
         self.set_card_expanded(False)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "panel"):
+            self.panel.setGeometry(self.rect())
+
     def set_card_expanded(self, expanded):
         # Translucent Windows surfaces must not paint the intermediate layout
         # (a tall window with a still-hidden card), especially while moving.
         self.setUpdatesEnabled(False)
         try:
             self.card.setVisible(expanded)
-            self.setFixedSize(390, 748 if expanded else 520)
-            self.layout().activate()
+            self.resize(390, 748 if expanded else 520)
+            self.panel.setGeometry(self.rect())
             self.panel.layout().activate()
             screen = self.screen().availableGeometry()
             if self.frameGeometry().bottom() > screen.bottom():

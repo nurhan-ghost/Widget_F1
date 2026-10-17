@@ -25,11 +25,12 @@ class ProfileTests(unittest.TestCase):
             window.portraits[key] = b""
         app.processEvents()
         collapsed_list = window.scroll.geometry()
-        for entry in parse_entries(data, "drivers")[:4]:
+        for entry in parse_entries(data, "drivers")[:4] * 25:
             button = next(b for b in window.findChildren(QPushButton) if b.text() == entry.code)
             QTest.mouseClick(button, Qt.MouseButton.LeftButton)
             app.processEvents()
             self.assertTrue(window.card.isVisible())
+            self.assertEqual(window.scroll.geometry(), collapsed_list)
             self.assertEqual(window.scroll.height(), 288)
             self.assertLess(window.scroll.geometry().bottom(), window.card.y())
             self.assertTrue(window.panel.rect().contains(window.card.geometry()))
