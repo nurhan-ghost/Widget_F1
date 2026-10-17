@@ -13,6 +13,7 @@ class Entry:
     team: str
     points: Decimal
     movement: int | None
+    number: str | None = None
 
 
 def parse_entries(table: dict, mode: str, previous: dict | None = None) -> list[Entry]:
@@ -30,7 +31,8 @@ def parse_entries(table: dict, mode: str, previous: dict | None = None) -> list[
         position = int(row["position"])
         entries.append(Entry(identity, position, code, name, team.get("constructorId", ""),
                              team.get("name", "Unknown"), Decimal(row["points"]),
-                             old[identity] - position if identity in old else None))
+                             old[identity] - position if identity in old else None,
+                             person.get("permanentNumber") if mode == "drivers" else None))
     return sorted(entries, key=lambda entry: entry.position)
 
 

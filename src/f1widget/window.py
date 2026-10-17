@@ -6,11 +6,16 @@ from PySide6.QtCore import Qt, QThread, Signal, QStandardPaths, QTimer, QSetting
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication, QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QScrollArea, QButtonGroup, QSystemTrayIcon, QMenu,
+    QScrollArea, QSystemTrayIcon, QMenu, QLayout,
 )
 from .models import parse_entries, gap
 from .service import StandingsService
 from .theme import STYLE, TEAM_COLORS
+from .fonts import interface_font
+from .profile import ProfileService
+from .driver_card import DriverCard, ProfileWorker
+from .motion import HoverRow
+from .mode_tabs import ModeTabs
 
 ROW_HEIGHT = 48
 
@@ -45,19 +50,28 @@ class StandingsWindow(QWidget):
         self.setWindowTitle("F1 Standings")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(390, 520)
-        self.setStyleSheet(STYLE)
+        self.setFixedWidth(390)
+        self.resize(390, 520)
+        family = interface_font().replace("'", "\\'")
+        self.setStyleSheet(STYLE.replace("'Segoe UI'", f"'{family}'"))
         self.settings = QSettings()
         self.mode = "drivers"
         self.data = {}
         self.workers = {}
+        self.selected_driver = None
+        self.profile_results = {}
+        self.portraits = {}
         self.pending_quit = False
         self.service = StandingsService(Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppLocalDataLocation)))
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        panel = QFrame(objectName="panel")
-        root.addWidget(panel)
+        self.profile_service = ProfileService(self.service.cache_dir)
+        # The native window owns its height. A top-level layout must not send
+        # competing minimum-size changes while a card is being hidden/shown.
+        panel = QFrame(self, objectName="panel")
+        self.panel = panel
+        panel.setGeometry(self.rect())
         layout = QVBoxLayout(panel)
+        layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.setContentsMargins(18, 16, 18, 14)
         layout.setSpacing(10)
         top = QHBoxLayout()
@@ -80,16 +94,9 @@ class StandingsWindow(QWidget):
         layout.addLayout(top)
         self.subtitle = label("CHAMPIONSHIP / WAITING FOR DATA", name="muted")
         layout.addWidget(self.subtitle)
-        tabs = QHBoxLayout()
-        self.group = QButtonGroup(self)
-        for mode in ("drivers", "teams"):
-            button = QPushButton(mode.upper())
-            button.setCheckable(True)
-            button.setChecked(mode == self.mode)
-            button.clicked.connect(lambda checked, mode=mode: self.switch_mode(mode))
-            self.group.addButton(button)
-            tabs.addWidget(button)
-        layout.addLayout(tabs)
+        self.tabs = ModeTabs(self)
+        self.tabs.mode_requested.connect(self.switch_mode)
+        layout.addWidget(self.tabs)
         header = QHBoxLayout()
         header.setContentsMargins(6, 0, 11, 0)
         for text, width in (("POS", 34), ("", 28), ("ENTRY", 145), ("PTS", 57), ("GAP", 45)):
@@ -103,6 +110,10 @@ class StandingsWindow(QWidget):
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.scroll.verticalScrollBar().setSingleStep(ROW_HEIGHT)
         layout.addWidget(self.scroll)
+        self.card = DriverCard(self)
+        self.card.closed.connect(self.close_card)
+        self.card.hide()
+        layout.addWidget(self.card)
         bottom = QHBoxLayout()
         self.status = label("Connecting to Jolpica…", name="muted")
         bottom.addWidget(self.status, 1)
@@ -172,6 +183,8 @@ class StandingsWindow(QWidget):
             QApplication.quit()
 
     def switch_mode(self, mode):
+        self.tabs.set_current(mode)
+        self.close_card()
         self.mode = mode
         if mode in self.data:
             self.render(self.data[mode])
@@ -203,6 +216,8 @@ class StandingsWindow(QWidget):
             QApplication.quit()
 
     def on_loaded(self, mode, data):
+        if mode == "drivers" and self.selected_driver:
+            self.close_card()
         self.data[mode] = data
         if mode == self.mode:
             self.render(data)
@@ -222,6 +237,8 @@ class StandingsWindow(QWidget):
 
     def render(self, data):
         current = data["current"]
+        self.current_season = current["season"]
+        self.current_round = int(current["round"])
         try:
             entries = parse_entries(current, self.mode, data.get("previous"))
         except (KeyError, ValueError, TypeError):
@@ -240,9 +257,8 @@ class StandingsWindow(QWidget):
         rows.setContentsMargins(0, 0, 0, 0)
         rows.setSpacing(0)
         for entry in entries:
-            row = QFrame(objectName="standingRow")
+            row = HoverRow()
             row.setFixedHeight(ROW_HEIGHT)
-            row.setStyleSheet("QFrame#standingRow { background: #191E27; border-bottom: 1px solid #292F3A; border-radius: 0; }")
             line = QHBoxLayout(row)
             line.setContentsMargins(6, 0, 0, 0)
             line.setSpacing(0)
@@ -264,11 +280,27 @@ class StandingsWindow(QWidget):
             stripe.setFixedSize(3, 28)
             stripe.setStyleSheet(f"background: {TEAM_COLORS.get(entry.team_id, '#8290A5')}; border-radius: 1px;")
             identity_layout.addWidget(stripe)
-            name = label(entry.code if self.mode == "drivers" else entry.name.upper())
-            name.setStyleSheet(f"font-size: {23 if self.mode == 'drivers' else 11}px; font-weight: 800; letter-spacing: 1px;")
+            if self.mode == "drivers":
+                number = QPushButton(entry.number or "—", objectName="driverNumber")
+                number.setFixedWidth(32)
+                number.setStyleSheet("color: #9BA5B5; font-size: 16px; font-weight: 700; padding: 0; border: none; background: transparent;")
+                number.setCursor(Qt.CursorShape.PointingHandCursor)
+                number.clicked.connect(lambda checked=False, entry=entry: self.select_driver(entry))
+                number.setToolTip("Open season profile")
+                identity_layout.addWidget(number)
+            name = QPushButton(entry.code) if self.mode == "drivers" else label(entry.name.upper())
+            name.setStyleSheet(f"font-size: {20 if self.mode == 'drivers' else 11}px; font-weight: 800; letter-spacing: 1px; padding: 0; border: none; background: transparent;")
+            if self.mode == "drivers":
+                name.setCursor(Qt.CursorShape.PointingHandCursor)
+                name.clicked.connect(lambda checked=False, entry=entry: self.select_driver(entry))
             if self.mode == "teams":
                 name.setText(name.fontMetrics().elidedText(entry.name.upper(), Qt.TextElideMode.ElideRight, 126))
             name.setToolTip(f"{entry.name} · {entry.team}")
+            if self.mode == "drivers":
+                color = TEAM_COLORS.get(entry.team_id, '#EEF1F5')
+                for button in (number, name):
+                    # Scope the existing declarations before adding hover rules.
+                    button.setStyleSheet(f"QPushButton {{ {button.styleSheet()} }} QPushButton:hover {{ color: {color}; }}")
             identity_layout.addWidget(name)
             line.addWidget(identity)
             points = label(f"{entry.points:g}", 57)
@@ -280,3 +312,63 @@ class StandingsWindow(QWidget):
             rows.addWidget(row)
         rows.addStretch()
         self.scroll.setWidget(content)
+
+    def close_card(self):
+        self.selected_driver = None
+        self.card.stop_motion()
+        self.set_card_expanded(False)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "panel"):
+            self.panel.setGeometry(self.rect())
+
+    def set_card_expanded(self, expanded):
+        # Translucent Windows surfaces must not paint the intermediate layout
+        # (a tall window with a still-hidden card), especially while moving.
+        self.setUpdatesEnabled(False)
+        try:
+            self.card.setVisible(expanded)
+            self.resize(390, 748 if expanded else 520)
+            self.panel.setGeometry(self.rect())
+            self.panel.layout().activate()
+            screen = self.screen().availableGeometry()
+            if self.frameGeometry().bottom() > screen.bottom():
+                self.move(self.x(), max(screen.top(), screen.bottom() - self.height() + 1))
+        finally:
+            self.setUpdatesEnabled(True)
+        self.update()
+        QTimer.singleShot(0, self.repaint)
+
+    def select_driver(self, entry):
+        key = (entry.identity, self.current_season, self.current_round)
+        if self.selected_driver == key:
+            self.close_card()
+            return
+        self.selected_driver = key
+        self.card.set_driver(entry, self.current_season, self.current_round)
+        self.set_card_expanded(True)
+        if key in self.profile_results:
+            self.card.set_stats(self.profile_results[key])
+        if key in self.portraits:
+            self.card.set_portrait(self.portraits[key])
+        if key in self.workers or (key in self.profile_results and key in self.portraits):
+            return
+        worker = ProfileWorker(self.profile_service, entry, key, self)
+        worker.loaded.connect(self.profile_loaded)
+        worker.portrait_loaded.connect(self.portrait_loaded)
+        worker.finished.connect(lambda: self.worker_finished(key))
+        self.workers[key] = worker
+        worker.start()
+
+    def profile_loaded(self, key, data):
+        if data is not None:
+            self.profile_results[key] = data
+        if key == self.selected_driver:
+            self.card.set_stats(data)
+
+    def portrait_loaded(self, key, content):
+        if content:
+            self.portraits[key] = content
+        if key == self.selected_driver:
+            self.card.set_portrait(content)

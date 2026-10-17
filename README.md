@@ -43,7 +43,39 @@ Drag the title area to move the window. **PIN** keeps it above other windows.
 **×** hides it to the system tray; use the tray menu to show it or quit.
 The window position and pin preference are remembered. Autostart is not enabled.
 
+Click a driver's number or code to expand a season card below the six-row list.
+Click again or use the card's close button to collapse it. Selecting another
+driver switches the card; switching to Teams closes it. The card shows Grand Prix
+starts, wins (hover for race names), podiums and current championship position.
+Sprint results are excluded. Statistics are capped at the standings' round.
+Jolpica summaries load in the background and are cached. Bundled transparent
+portraits come from [UniqRenders](https://uniqrenders.com); individual source pages
+are recorded in `src/f1widget/assets/portraits/sources.json`. The UI displays an
+upper-body crop while preserving the original PNG files. Drivers unavailable
+on UniqRenders retain OpenF1 headshots as a fallback. Missing photos and offline
+data are explicitly indicated. Portrait uniforms may differ from the selected
+season's team; the live team label always comes from standings.
+
+Rows fade on hover (120 ms), driver details fade in when switching (160 ms), and
+portraits fade in with an 8 px slide (200 ms). Animations affect painting only;
+window and list geometry are not animated. A new selection interrupts existing
+motion immediately, stale network responses are ignored, and closing the card
+cancels its animations.
+The DRIVERS / TEAMS selector uses a single red highlight that slides between
+tabs in 200 ms. Rapid reversals start from its current position; repeated clicks
+on the active tab do not restart the motion or reload data.
+
 ## Data
+
+Driver rows show the permanent driver number supplied by Jolpica, alongside the
+three-letter code. This is distinct from championship position; a champion's
+temporary race number 1 is not inferred from standings. Missing numbers show a dash.
+
+The interface uses Russo One from the supplied archive, under the bundled SIL
+Open Font License (`src/f1widget/assets/fonts/OFL.txt`). This is not the official
+Formula 1 typeface. Fonts are loaded locally, not installed in Windows.
+To change the typeface, replace the TTF/OTF files in `src/f1widget/assets/fonts/`
+and restart the source app. Segoe UI is the fallback if no font can be loaded.
 
 [Jolpica F1](https://github.com/jolpica/jolpica-f1/tree/main/docs) supplies driver
 and constructor standings. Data is cached in the Windows application-data folder

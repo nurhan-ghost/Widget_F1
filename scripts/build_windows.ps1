@@ -11,7 +11,7 @@ try {
     # Prevent unrelated applications' runtime DLLs from entering the bundle.
     $env:PATH = "$projectRoot\.venv\Scripts;$env:SystemRoot\System32;$env:SystemRoot"
     & $python -m PyInstaller --clean --noconfirm --onefile --windowed --noupx --icon $icon `
-        --add-data "${icon}:f1widget/assets" `
+        --add-data "${projectRoot}\src\f1widget\assets:f1widget/assets" `
         --name F1Standings --paths src --specpath build --distpath dist `
         --workpath build\pyinstaller packaging\launcher.py
     if ($LASTEXITCODE -ne 0) { throw 'Windows build failed.' }
