@@ -12,6 +12,8 @@ from .models import parse_entries, gap
 from .service import StandingsService
 from .theme import STYLE, TEAM_COLORS
 from .fonts import interface_font
+from .profile import ProfileService
+from .driver_card import DriverCard, ProfileWorker
 
 ROW_HEIGHT = 48
 
@@ -53,8 +55,12 @@ class StandingsWindow(QWidget):
         self.mode = "drivers"
         self.data = {}
         self.workers = {}
+        self.selected_driver = None
+        self.profile_results = {}
+        self.portraits = {}
         self.pending_quit = False
         self.service = StandingsService(Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppLocalDataLocation)))
+        self.profile_service = ProfileService(self.service.cache_dir)
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         panel = QFrame(objectName="panel")
@@ -105,6 +111,10 @@ class StandingsWindow(QWidget):
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.scroll.verticalScrollBar().setSingleStep(ROW_HEIGHT)
         layout.addWidget(self.scroll)
+        self.card = DriverCard(self)
+        self.card.closed.connect(self.close_card)
+        self.card.hide()
+        layout.addWidget(self.card)
         bottom = QHBoxLayout()
         self.status = label("Connecting to Jolpica…", name="muted")
         bottom.addWidget(self.status, 1)
@@ -174,6 +184,7 @@ class StandingsWindow(QWidget):
             QApplication.quit()
 
     def switch_mode(self, mode):
+        self.close_card()
         self.mode = mode
         if mode in self.data:
             self.render(self.data[mode])
@@ -205,6 +216,8 @@ class StandingsWindow(QWidget):
             QApplication.quit()
 
     def on_loaded(self, mode, data):
+        if mode == "drivers" and self.selected_driver:
+            self.close_card()
         self.data[mode] = data
         if mode == self.mode:
             self.render(data)
@@ -224,6 +237,8 @@ class StandingsWindow(QWidget):
 
     def render(self, data):
         current = data["current"]
+        self.current_season = current["season"]
+        self.current_round = int(current["round"])
         try:
             entries = parse_entries(current, self.mode, data.get("previous"))
         except (KeyError, ValueError, TypeError):
@@ -267,13 +282,18 @@ class StandingsWindow(QWidget):
             stripe.setStyleSheet(f"background: {TEAM_COLORS.get(entry.team_id, '#8290A5')}; border-radius: 1px;")
             identity_layout.addWidget(stripe)
             if self.mode == "drivers":
-                number = label(entry.number or "—", 32, "driverNumber")
-                number.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                number.setStyleSheet("color: #9BA5B5; font-size: 16px; font-weight: 700;")
-                number.setToolTip("Permanent driver number · Jolpica")
+                number = QPushButton(entry.number or "—", objectName="driverNumber")
+                number.setFixedWidth(32)
+                number.setStyleSheet("color: #9BA5B5; font-size: 16px; font-weight: 700; padding: 0; border: none; background: transparent;")
+                number.setCursor(Qt.CursorShape.PointingHandCursor)
+                number.clicked.connect(lambda checked=False, entry=entry: self.select_driver(entry))
+                number.setToolTip("Open season profile")
                 identity_layout.addWidget(number)
-            name = label(entry.code if self.mode == "drivers" else entry.name.upper())
-            name.setStyleSheet(f"font-size: {20 if self.mode == 'drivers' else 11}px; font-weight: 800; letter-spacing: 1px;")
+            name = QPushButton(entry.code) if self.mode == "drivers" else label(entry.name.upper())
+            name.setStyleSheet(f"font-size: {20 if self.mode == 'drivers' else 11}px; font-weight: 800; letter-spacing: 1px; padding: 0; border: none; background: transparent;")
+            if self.mode == "drivers":
+                name.setCursor(Qt.CursorShape.PointingHandCursor)
+                name.clicked.connect(lambda checked=False, entry=entry: self.select_driver(entry))
             if self.mode == "teams":
                 name.setText(name.fontMetrics().elidedText(entry.name.upper(), Qt.TextElideMode.ElideRight, 126))
             name.setToolTip(f"{entry.name} · {entry.team}")
@@ -288,3 +308,45 @@ class StandingsWindow(QWidget):
             rows.addWidget(row)
         rows.addStretch()
         self.scroll.setWidget(content)
+
+    def close_card(self):
+        self.selected_driver = None
+        self.card.hide()
+        self.setFixedSize(390, 520)
+
+    def select_driver(self, entry):
+        key = (entry.identity, self.current_season, self.current_round)
+        if self.selected_driver == key:
+            self.close_card()
+            return
+        self.selected_driver = key
+        self.card.set_driver(entry, self.current_season, self.current_round)
+        self.setFixedSize(390, 748)
+        self.card.show()
+        screen = self.screen().availableGeometry()
+        if self.frameGeometry().bottom() > screen.bottom():
+            self.move(self.x(), max(screen.top(), screen.bottom() - self.height() + 1))
+        if key in self.profile_results:
+            self.card.set_stats(self.profile_results[key])
+        if key in self.portraits:
+            self.card.set_portrait(self.portraits[key])
+        if key in self.workers or (key in self.profile_results and key in self.portraits):
+            return
+        worker = ProfileWorker(self.profile_service, entry, key, self)
+        worker.loaded.connect(self.profile_loaded)
+        worker.portrait_loaded.connect(self.portrait_loaded)
+        worker.finished.connect(lambda: self.worker_finished(key))
+        self.workers[key] = worker
+        worker.start()
+
+    def profile_loaded(self, key, data):
+        if data is not None:
+            self.profile_results[key] = data
+        if key == self.selected_driver:
+            self.card.set_stats(data)
+
+    def portrait_loaded(self, key, content):
+        if content:
+            self.portraits[key] = content
+        if key == self.selected_driver:
+            self.card.set_portrait(content)

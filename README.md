@@ -43,6 +43,15 @@ Drag the title area to move the window. **PIN** keeps it above other windows.
 **×** hides it to the system tray; use the tray menu to show it or quit.
 The window position and pin preference are remembered. Autostart is not enabled.
 
+Click a driver's number or code to expand a season card below the six-row list.
+Click again or use the card's close button to collapse it. Selecting another
+driver switches the card; switching to Teams closes it. The card shows Grand Prix
+starts, wins (hover for race names), podiums and current championship position.
+Sprint results are excluded. Statistics are capped at the standings' round.
+Jolpica summaries and OpenF1 headshots load in the background and are cached;
+missing photos or offline data are explicitly indicated. Portraits come from
+the latest available OpenF1 session and may not match historical season uniforms.
+
 ## Data
 
 Driver rows show the permanent driver number supplied by Jolpica, alongside the
