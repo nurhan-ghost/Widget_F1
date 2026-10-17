@@ -47,6 +47,14 @@ class LogicTests(unittest.TestCase):
         data = {"ConstructorStandings": [{"position": "1", "points": "42", "Constructor": {"constructorId": "mclaren", "name": "McLaren"}}]}
         self.assertEqual(parse_entries(data, "teams")[0].name, "McLaren")
 
+    def test_driver_numbers_are_not_championship_positions(self):
+        data = table(2)
+        data["DriverStandings"][0]["Driver"]["permanentNumber"] = "44"
+        entries = parse_entries(data, "drivers")
+        self.assertEqual(entries[0].number, "44")
+        self.assertEqual(entries[0].position, 1)
+        self.assertIsNone(entries[1].number)
+
 
 class LayoutTests(unittest.TestCase):
     @classmethod

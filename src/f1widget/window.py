@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from .models import parse_entries, gap
 from .service import StandingsService
 from .theme import STYLE, TEAM_COLORS
+from .fonts import interface_font
 
 ROW_HEIGHT = 48
 
@@ -46,7 +47,8 @@ class StandingsWindow(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(390, 520)
-        self.setStyleSheet(STYLE)
+        family = interface_font().replace("'", "\\'")
+        self.setStyleSheet(STYLE.replace("'Segoe UI'", f"'{family}'"))
         self.settings = QSettings()
         self.mode = "drivers"
         self.data = {}
@@ -264,8 +266,14 @@ class StandingsWindow(QWidget):
             stripe.setFixedSize(3, 28)
             stripe.setStyleSheet(f"background: {TEAM_COLORS.get(entry.team_id, '#8290A5')}; border-radius: 1px;")
             identity_layout.addWidget(stripe)
+            if self.mode == "drivers":
+                number = label(entry.number or "—", 32, "driverNumber")
+                number.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                number.setStyleSheet("color: #9BA5B5; font-size: 16px; font-weight: 700;")
+                number.setToolTip("Permanent driver number · Jolpica")
+                identity_layout.addWidget(number)
             name = label(entry.code if self.mode == "drivers" else entry.name.upper())
-            name.setStyleSheet(f"font-size: {23 if self.mode == 'drivers' else 11}px; font-weight: 800; letter-spacing: 1px;")
+            name.setStyleSheet(f"font-size: {20 if self.mode == 'drivers' else 11}px; font-weight: 800; letter-spacing: 1px;")
             if self.mode == "teams":
                 name.setText(name.fontMetrics().elidedText(entry.name.upper(), Qt.TextElideMode.ElideRight, 126))
             name.setToolTip(f"{entry.name} · {entry.team}")
