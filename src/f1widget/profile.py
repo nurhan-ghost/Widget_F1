@@ -1,6 +1,7 @@
 """Season summaries and cached portraits, independent of Qt."""
 import json
 import time
+from pathlib import Path
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
@@ -53,6 +54,9 @@ class ProfileService:
             raise
 
     def portrait(self, entry):
+        local = Path(__file__).parent / "assets" / "portraits" / f"{entry.identity}.png"
+        if local.is_file():
+            return local.read_bytes()
         path = self.cache_dir / f"{entry.identity}.png"
         try:
             if time.time() - path.stat().st_mtime < MAX_AGE * 7:

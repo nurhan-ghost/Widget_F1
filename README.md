@@ -48,9 +48,13 @@ Click again or use the card's close button to collapse it. Selecting another
 driver switches the card; switching to Teams closes it. The card shows Grand Prix
 starts, wins (hover for race names), podiums and current championship position.
 Sprint results are excluded. Statistics are capped at the standings' round.
-Jolpica summaries and OpenF1 headshots load in the background and are cached;
-missing photos or offline data are explicitly indicated. Portraits come from
-the latest available OpenF1 session and may not match historical season uniforms.
+Jolpica summaries load in the background and are cached. Bundled transparent
+portraits come from [UniqRenders](https://uniqrenders.com); individual source pages
+are recorded in `src/f1widget/assets/portraits/sources.json`. The UI displays an
+upper-body crop while preserving the original PNG files. Drivers unavailable
+on UniqRenders retain OpenF1 headshots as a fallback. Missing photos and offline
+data are explicitly indicated. Portrait uniforms may differ from the selected
+season's team; the live team label always comes from standings.
 
 ## Data
 
