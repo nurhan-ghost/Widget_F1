@@ -4,7 +4,27 @@ A compact Windows desktop widget built with Python and PySide6. English interfac
 three-letter driver codes, team accents, and exactly six visible rows. Scroll to
 see the rest of the grid without resizing the window.
 
-## Run in VS Code
+## Standalone Windows app
+
+Double-click `dist/F1Standings.exe`. This portable application includes Python
+and Qt, needs no VS Code or Python installation, and opens without a console.
+You can move the executable to any permanent folder and create a Windows shortcut
+to it. Internet is needed to retrieve new standings; saved data remains in your
+Windows application-data folder. Use the tray menu's **Quit** to exit fully.
+
+To rebuild after code changes (on Windows):
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[build]"
+powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1
+```
+
+The output is `dist/F1Standings.exe`; generated binaries and build intermediates
+are excluded from Git. Source changes do not update an existing executable until
+you rebuild it. The first launch may take a few seconds to unpack the runtime.
+This is a portable build, not an installer, and does not enable autostart.
+
+## Run from source in VS Code
 
 ```powershell
 python -m venv .venv
