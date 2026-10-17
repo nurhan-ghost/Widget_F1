@@ -57,10 +57,12 @@ data are explicitly indicated. Portrait uniforms may differ from the selected
 season's team; the live team label always comes from standings.
 
 Rows fade on hover (120 ms), driver details fade in when switching (160 ms), and
-portraits fade in with an 8 px slide (200 ms). Animations affect painting only;
-window and list geometry are not animated. A new selection interrupts existing
-motion immediately, stale network responses are ignored, and closing the card
-cancels its animations.
+portraits fade in with an 8 px slide (200 ms). The card opens and closes in
+220 ms through a clipping viewport: the window height follows the reveal while
+the six-row list, header and card contents retain their geometry. Rapid reversals
+start at the current height; selecting another driver keeps the opening motion
+running. Stale network responses are ignored. Closing stops text/photo motion
+and collapses the viewport; switching to Teams also collapses the card.
 The DRIVERS / TEAMS selector uses a single red highlight that slides between
 tabs in 200 ms. Rapid reversals start from its current position; repeated clicks
 on the active tab do not restart the motion or reload data.

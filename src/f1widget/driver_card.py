@@ -7,6 +7,19 @@ from .theme import TEAM_COLORS
 from .motion import AnimatedPortrait
 
 
+class CardViewport(QWidget):
+    """Clip a full-size card instead of compressing its internal layout."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(0)
+        self.card = DriverCard(self)
+        self.card.hide()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.card.setGeometry(0, 0, self.width(), 218)
+
+
 class ProfileWorker(QThread):
     loaded = Signal(object, object)
     portrait_loaded = Signal(object, bytes)

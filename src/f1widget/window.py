@@ -2,7 +2,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread, Signal, QStandardPaths, QTimer, QSettings
+from PySide6.QtCore import Qt, QThread, Signal, QStandardPaths, QTimer, QSettings, QVariantAnimation, QEasingCurve
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication, QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
@@ -13,7 +13,7 @@ from .service import StandingsService
 from .theme import STYLE, TEAM_COLORS
 from .fonts import interface_font
 from .profile import ProfileService
-from .driver_card import DriverCard, ProfileWorker
+from .driver_card import CardViewport, ProfileWorker
 from .motion import HoverRow
 from .mode_tabs import ModeTabs
 
@@ -110,10 +110,17 @@ class StandingsWindow(QWidget):
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.scroll.verticalScrollBar().setSingleStep(ROW_HEIGHT)
         layout.addWidget(self.scroll)
-        self.card = DriverCard(self)
+        self.card_viewport = CardViewport(self)
+        self.card = self.card_viewport.card
         self.card.closed.connect(self.close_card)
-        self.card.hide()
-        layout.addWidget(self.card)
+        self.card_expanded = False
+        self.reveal_motion = QVariantAnimation(self)
+        self.reveal_motion.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.reveal_motion.valueChanged.connect(self.apply_reveal_height)
+        self.reveal_motion.finished.connect(self.finish_reveal)
+        tail = QVBoxLayout()
+        tail.setSpacing(0)
+        tail.addWidget(self.card_viewport)
         bottom = QHBoxLayout()
         self.status = label("Connecting to Jolpica…", name="muted")
         bottom.addWidget(self.status, 1)
@@ -121,7 +128,8 @@ class StandingsWindow(QWidget):
         self.refresh.setToolTip("Refresh standings")
         self.refresh.clicked.connect(lambda: self.load(True))
         bottom.addWidget(self.refresh)
-        layout.addLayout(bottom)
+        tail.addLayout(bottom)
+        layout.addLayout(tail)
         self.message("LIGHTS OUT. DATA INCOMING.")
         self.setup_tray()
         self.pin.setChecked(self.settings.value("pinned", False, type=bool))
@@ -174,6 +182,7 @@ class StandingsWindow(QWidget):
             self.quit()
 
     def quit(self):
+        self.reveal_motion.stop()
         self.settings.setValue("position", self.pos())
         self.pending_quit = True
         self.timer.stop()
@@ -324,21 +333,42 @@ class StandingsWindow(QWidget):
             self.panel.setGeometry(self.rect())
 
     def set_card_expanded(self, expanded):
-        # Translucent Windows surfaces must not paint the intermediate layout
-        # (a tall window with a still-hidden card), especially while moving.
+        if expanded == self.card_expanded:
+            return
+        self.card_expanded = expanded
+        self.reveal_motion.stop()
+        current = self.card_viewport.height()
+        target = 228 if expanded else 0
+        if expanded:
+            self.card.show()
+            # Reserve screen space once, not on every animation frame.
+            screen = self.screen().availableGeometry()
+            if self.y() + 748 > screen.bottom() + 1:
+                self.move(self.x(), max(screen.top(), screen.bottom() - 748 + 1))
+        if current == target:
+            self.finish_reveal()
+            return
+        self.reveal_motion.setDuration(max(70, round(220 * abs(target - current) / 228)))
+        self.reveal_motion.setStartValue(float(current))
+        self.reveal_motion.setEndValue(float(target))
+        self.reveal_motion.start()
+
+    def apply_reveal_height(self, value):
+        height = max(0, min(228, round(value)))
         self.setUpdatesEnabled(False)
         try:
-            self.card.setVisible(expanded)
-            self.resize(390, 748 if expanded else 520)
+            self.card_viewport.setFixedHeight(height)
+            self.resize(390, 520 + height)
             self.panel.setGeometry(self.rect())
             self.panel.layout().activate()
-            screen = self.screen().availableGeometry()
-            if self.frameGeometry().bottom() > screen.bottom():
-                self.move(self.x(), max(screen.top(), screen.bottom() - self.height() + 1))
         finally:
             self.setUpdatesEnabled(True)
         self.update()
-        QTimer.singleShot(0, self.repaint)
+
+    def finish_reveal(self):
+        self.apply_reveal_height(228 if self.card_expanded else 0)
+        if not self.card_expanded:
+            self.card.hide()
 
     def select_driver(self, entry):
         key = (entry.identity, self.current_season, self.current_round)

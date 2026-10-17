@@ -68,13 +68,15 @@ class ProfileTests(unittest.TestCase):
         for entry in parse_entries(data, "drivers")[:4] * 25:
             button = next(b for b in window.findChildren(QPushButton) if b.text() == entry.code)
             QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+            window.reveal_motion.setCurrentTime(window.reveal_motion.duration())
             app.processEvents()
             self.assertTrue(window.card.isVisible())
             self.assertEqual(window.scroll.geometry(), collapsed_list)
             self.assertEqual(window.scroll.height(), 288)
-            self.assertLess(window.scroll.geometry().bottom(), window.card.y())
-            self.assertTrue(window.panel.rect().contains(window.card.geometry()))
+            self.assertLess(window.scroll.geometry().bottom(), window.card_viewport.y())
+            self.assertTrue(window.panel.rect().contains(window.card_viewport.geometry()))
             QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+            window.reveal_motion.setCurrentTime(window.reveal_motion.duration())
             app.processEvents()
             self.assertEqual(window.height(), 520)
             self.assertEqual(window.scroll.geometry(), collapsed_list)
@@ -100,6 +102,7 @@ class ProfileTests(unittest.TestCase):
             window.profile_results[key] = {"starts": 3, "wins": [], "podiums": 0, "source": "Saved"}
             window.portraits[key] = b""
         window.select_driver(entries[0])
+        window.reveal_motion.setCurrentTime(window.reveal_motion.duration())
         app.processEvents()
         self.assertEqual(window.height(), 748)
         self.assertEqual(window.scroll.viewport().height(), 288)
@@ -107,8 +110,56 @@ class ProfileTests(unittest.TestCase):
         window.profile_loaded((entries[0].identity, "2025", 3), {"starts": 99, "wins": [], "podiums": 0, "source": "Live"})
         self.assertEqual(window.card.starts.text(), "Starts: 3 races")
         window.select_driver(entries[1])
+        window.reveal_motion.setCurrentTime(window.reveal_motion.duration())
         self.assertEqual(window.height(), 520)
         self.assertIsNone(window.selected_driver)
+        window.timer.stop()
+        window.tray.hide()
+        window.hide()
+
+    def test_reveal_reversal_and_rapid_selection_preserve_layout(self):
+        from PySide6.QtTest import QTest
+        from unittest.mock import patch
+        from PySide6.QtCore import QAbstractAnimation
+        import time
+        app = QApplication.instance() or QApplication([])
+        window = StandingsWindow(False)
+        data = table(6)
+        window.render({'current': data, 'saved_at': time.time(), 'source': 'Saved'})
+        entries = parse_entries(data, 'drivers')[:4]
+        for entry in entries:
+            key = (entry.identity, '2025', 3)
+            window.profile_results[key] = {'starts': 3, 'wins': [], 'podiums': 0, 'source': 'Saved'}
+            window.portraits[key] = b''
+        app.processEvents()
+        geometry = window.scroll.geometry()
+        window.select_driver(entries[0])
+        window.reveal_motion.setCurrentTime(80)
+        halfway = window.card_viewport.height()
+        self.assertTrue(0 < halfway < 228)
+        window.close_card()
+        self.assertEqual(window.reveal_motion.startValue(), halfway)
+        for i in range(120):
+            if i % 3 == 0:
+                window.close_card()
+            else:
+                window.select_driver(entries[i % 4])
+            QTest.qWait(2)
+            self.assertEqual(window.scroll.geometry(), geometry)
+            self.assertEqual(window.card.height(), 218)
+            self.assertTrue(520 <= window.height() <= 748)
+        window.close_card()
+        window.select_driver(entries[-1])
+        QTest.qWait(260)
+        self.assertEqual(window.height(), 748)
+        self.assertEqual(window.selected_driver[0], entries[-1].identity)
+        with patch.object(window, 'load'):
+            window.switch_mode('teams')
+        QTest.qWait(260)
+        self.assertEqual(window.height(), 520)
+        self.assertFalse(window.card.isVisible())
+        self.assertIsNone(window.selected_driver)
+        self.assertEqual(window.reveal_motion.state(), QAbstractAnimation.State.Stopped)
         window.timer.stop()
         window.tray.hide()
         window.hide()
