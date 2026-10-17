@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, Signal, QStandardPaths, QTimer, QSettings
-from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication, QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QScrollArea, QButtonGroup, QSystemTrayIcon, QMenu,
@@ -126,13 +126,7 @@ class StandingsWindow(QWidget):
             QTimer.singleShot(0, self.load)
 
     def setup_tray(self):
-        pixmap = QPixmap(32, 32)
-        pixmap.fill(QColor("#E5343D"))
-        painter = QPainter(pixmap)
-        painter.setPen(Qt.GlobalColor.white)
-        painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "F1")
-        painter.end()
-        self.setWindowIcon(QIcon(pixmap))
+        self.setWindowIcon(QIcon(str(Path(__file__).parent / "assets" / "app.ico")))
         self.tray = QSystemTrayIcon(self.windowIcon(), self)
         self.tray.setToolTip("F1 Standings")
         menu = QMenu(self)
