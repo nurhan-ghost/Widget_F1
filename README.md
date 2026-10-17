@@ -61,6 +61,9 @@ portraits fade in with an 8 px slide (200 ms). Animations affect painting only;
 window and list geometry are not animated. A new selection interrupts existing
 motion immediately, stale network responses are ignored, and closing the card
 cancels its animations.
+The DRIVERS / TEAMS selector uses a single red highlight that slides between
+tabs in 200 ms. Rapid reversals start from its current position; repeated clicks
+on the active tab do not restart the motion or reload data.
 
 ## Data
 

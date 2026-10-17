@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, QThread, Signal, QStandardPaths, QTimer, QSetting
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication, QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QScrollArea, QButtonGroup, QSystemTrayIcon, QMenu, QLayout,
+    QScrollArea, QSystemTrayIcon, QMenu, QLayout,
 )
 from .models import parse_entries, gap
 from .service import StandingsService
@@ -15,6 +15,7 @@ from .fonts import interface_font
 from .profile import ProfileService
 from .driver_card import DriverCard, ProfileWorker
 from .motion import HoverRow
+from .mode_tabs import ModeTabs
 
 ROW_HEIGHT = 48
 
@@ -93,16 +94,9 @@ class StandingsWindow(QWidget):
         layout.addLayout(top)
         self.subtitle = label("CHAMPIONSHIP / WAITING FOR DATA", name="muted")
         layout.addWidget(self.subtitle)
-        tabs = QHBoxLayout()
-        self.group = QButtonGroup(self)
-        for mode in ("drivers", "teams"):
-            button = QPushButton(mode.upper())
-            button.setCheckable(True)
-            button.setChecked(mode == self.mode)
-            button.clicked.connect(lambda checked, mode=mode: self.switch_mode(mode))
-            self.group.addButton(button)
-            tabs.addWidget(button)
-        layout.addLayout(tabs)
+        self.tabs = ModeTabs(self)
+        self.tabs.mode_requested.connect(self.switch_mode)
+        layout.addWidget(self.tabs)
         header = QHBoxLayout()
         header.setContentsMargins(6, 0, 11, 0)
         for text, width in (("POS", 34), ("", 28), ("ENTRY", 145), ("PTS", 57), ("GAP", 45)):
@@ -189,6 +183,7 @@ class StandingsWindow(QWidget):
             QApplication.quit()
 
     def switch_mode(self, mode):
+        self.tabs.set_current(mode)
         self.close_card()
         self.mode = mode
         if mode in self.data:
