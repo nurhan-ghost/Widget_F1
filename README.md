@@ -49,9 +49,11 @@ Driver rows show the permanent driver number supplied by Jolpica, alongside the
 three-letter code. This is distinct from championship position; a champion's
 temporary race number 1 is not inferred from standings. Missing numbers show a dash.
 
-For a unified custom typeface, place your licensed Formula 1 TTF or OTF files in
-`src/f1widget/assets/fonts/` and restart the source app. Until files are provided,
-Segoe UI remains the fallback. Fonts are loaded locally, not installed in Windows.
+The interface uses Russo One from the supplied archive, under the bundled SIL
+Open Font License (`src/f1widget/assets/fonts/OFL.txt`). This is not the official
+Formula 1 typeface. Fonts are loaded locally, not installed in Windows.
+To change the typeface, replace the TTF/OTF files in `src/f1widget/assets/fonts/`
+and restart the source app. Segoe UI is the fallback if no font can be loaded.
 
 [Jolpica F1](https://github.com/jolpica/jolpica-f1/tree/main/docs) supplies driver
 and constructor standings. Data is cached in the Windows application-data folder
