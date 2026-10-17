@@ -64,6 +64,7 @@ class StandingsWindow(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         panel = QFrame(objectName="panel")
+        self.panel = panel
         root.addWidget(panel)
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(18, 16, 18, 14)
@@ -311,8 +312,24 @@ class StandingsWindow(QWidget):
 
     def close_card(self):
         self.selected_driver = None
-        self.card.hide()
-        self.setFixedSize(390, 520)
+        self.set_card_expanded(False)
+
+    def set_card_expanded(self, expanded):
+        # Translucent Windows surfaces must not paint the intermediate layout
+        # (a tall window with a still-hidden card), especially while moving.
+        self.setUpdatesEnabled(False)
+        try:
+            self.card.setVisible(expanded)
+            self.setFixedSize(390, 748 if expanded else 520)
+            self.layout().activate()
+            self.panel.layout().activate()
+            screen = self.screen().availableGeometry()
+            if self.frameGeometry().bottom() > screen.bottom():
+                self.move(self.x(), max(screen.top(), screen.bottom() - self.height() + 1))
+        finally:
+            self.setUpdatesEnabled(True)
+        self.update()
+        QTimer.singleShot(0, self.repaint)
 
     def select_driver(self, entry):
         key = (entry.identity, self.current_season, self.current_round)
@@ -321,11 +338,7 @@ class StandingsWindow(QWidget):
             return
         self.selected_driver = key
         self.card.set_driver(entry, self.current_season, self.current_round)
-        self.setFixedSize(390, 748)
-        self.card.show()
-        screen = self.screen().availableGeometry()
-        if self.frameGeometry().bottom() > screen.bottom():
-            self.move(self.x(), max(screen.top(), screen.bottom() - self.height() + 1))
+        self.set_card_expanded(True)
         if key in self.profile_results:
             self.card.set_stats(self.profile_results[key])
         if key in self.portraits:

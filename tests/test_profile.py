@@ -10,6 +10,37 @@ from test_widget import table
 
 
 class ProfileTests(unittest.TestCase):
+    def test_top_four_expand_and_collapse_without_layout_drift(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from PySide6.QtWidgets import QPushButton
+        import time
+        app = QApplication.instance() or QApplication([])
+        window = StandingsWindow(False)
+        data = table(6)
+        window.render({"current": data, "saved_at": time.time(), "source": "Saved"})
+        for entry in parse_entries(data, "drivers")[:4]:
+            key = (entry.identity, "2025", 3)
+            window.profile_results[key] = {"starts": 3, "wins": [], "podiums": 0, "source": "Saved"}
+            window.portraits[key] = b""
+        app.processEvents()
+        collapsed_list = window.scroll.geometry()
+        for entry in parse_entries(data, "drivers")[:4]:
+            button = next(b for b in window.findChildren(QPushButton) if b.text() == entry.code)
+            QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+            app.processEvents()
+            self.assertTrue(window.card.isVisible())
+            self.assertEqual(window.scroll.height(), 288)
+            self.assertLess(window.scroll.geometry().bottom(), window.card.y())
+            self.assertTrue(window.panel.rect().contains(window.card.geometry()))
+            QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+            app.processEvents()
+            self.assertEqual(window.height(), 520)
+            self.assertEqual(window.scroll.geometry(), collapsed_list)
+        window.timer.stop()
+        window.tray.hide()
+        window.hide()
+
     def test_stats_exclude_future_round_and_non_starts(self):
         races = [{"round": str(i), "raceName": f"Race {i}", "Results": [
             {"position": pos, "status": status}]} for i, pos, status in
