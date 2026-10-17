@@ -24,6 +24,10 @@ are excluded from Git. Source changes do not update an existing executable until
 you rebuild it. The first launch may take a few seconds to unpack the runtime.
 This is a portable build, not an installer, and does not enable autostart.
 
+The application icon is `src/f1widget/assets/app.ico`. It is embedded in the
+executable and used by the window and tray. Replace this file and rebuild to
+change the icon.
+
 ## Run from source in VS Code
 
 ```powershell

@@ -21,6 +21,7 @@ if __name__ == "__main__":
             data = window.service.load("drivers", force=True)
             window.render(data)
             app.processEvents()
+            assert not window.windowIcon().pixmap(32, 32).isNull(), "App icon is missing"
             assert window.scroll.viewport().height() == ROW_HEIGHT * 6
             assert window.scroll.verticalScrollBar().maximum() > 0
             assert data["source"].startswith("Live"), data["source"]

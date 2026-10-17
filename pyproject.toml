@@ -17,3 +17,6 @@ f1-widget = "f1widget.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+f1widget = ["assets/*.ico"]
