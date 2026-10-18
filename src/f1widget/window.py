@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, QThread, Signal, QStandardPaths, QTimer, QSetting
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication, QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QScrollArea, QSystemTrayIcon, QMenu, QLayout,
+    QSystemTrayIcon, QMenu, QLayout,
 )
 from .models import parse_entries, gap
 from .service import StandingsService
@@ -16,6 +16,7 @@ from .profile import ProfileService
 from .driver_card import CardViewport, ProfileWorker
 from .motion import HoverRow, StandingsRows
 from .mode_tabs import ModeTabs
+from .smooth_scroll import SmoothScrollArea
 
 ROW_HEIGHT = 48
 
@@ -104,7 +105,7 @@ class StandingsWindow(QWidget):
             header.addWidget(label(text, width, "muted"))
         header.setSpacing(0)
         layout.addLayout(header)
-        self.scroll = QScrollArea()
+        self.scroll = SmoothScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setFixedHeight(6 * ROW_HEIGHT)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -184,6 +185,7 @@ class StandingsWindow(QWidget):
 
     def quit(self):
         self.reveal_motion.stop()
+        self.scroll.stop_motion()
         self.stop_rows_motion()
         self.settings.setValue("position", self.pos())
         self.pending_quit = True
