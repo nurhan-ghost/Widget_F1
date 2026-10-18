@@ -103,3 +103,27 @@ class SmoothScrollTests(unittest.TestCase):
             self.window.message('LOADING')
             QTest.qWait(210)
             self.assertEqual(self.bar.value(), 0)
+
+    def test_scrolling_keeps_every_visible_row_painted(self):
+        with patch.object(self.window, 'load'):
+            for index, mode in enumerate(('drivers', 'teams', 'drivers', 'teams')):
+                self.window.switch_mode(mode)
+                # Scroll both during the entrance and after it has finished.
+                if index >= 2:
+                    QTest.qWait(350)
+                # Include partially clipped rows and the fifth/sixth row boundary.
+                for offset in (1, 47, 48, 191, 192, 239, 240, 241, 96, 0):
+                    self.bar.setValue(min(offset, self.bar.maximum()))
+                    self.app.processEvents()
+                    self.assertTrue(all(row.graphicsEffect() is None
+                                        for row in self.scroll.widget().rows))
+                    image = self.scroll.viewport().grab().toImage()
+                    scale = image.devicePixelRatio()
+                    for y in range(0, self.scroll.viewport().height(), 8):
+                        if (y + self.bar.value()) % 48 == 47:
+                            continue
+                        color = image.pixelColor(round(2 * scale), round(y * scale))
+                        self.assertGreaterEqual(color.red(), 25,
+                                                (mode, offset, y, color.name()))
+                        self.assertGreaterEqual(color.alpha(), 250,
+                                                (mode, offset, y, color.name()))
