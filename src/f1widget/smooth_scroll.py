@@ -1,6 +1,7 @@
 """Interruptible wheel scrolling with native scrollbar and touchpad control."""
 from PySide6.QtCore import QEvent, QEasingCurve, QVariantAnimation
 from PySide6.QtWidgets import QScrollArea
+from .motion import StandingsRows
 
 
 class SmoothScrollArea(QScrollArea):
@@ -40,6 +41,13 @@ class SmoothScrollArea(QScrollArea):
         self.stop_motion()
         super().setWidget(widget)
         self.stop_motion()
+
+    def scrollContentsBy(self, dx, dy):
+        content = self.widget()
+        if isinstance(content, StandingsRows):
+            # Finish the entrance before any wheel, touchpad or scrollbar move.
+            content.finish_entrance()
+        super().scrollContentsBy(dx, dy)
 
     def eventFilter(self, watched, event):
         if watched is self.verticalScrollBar() and event.type() == QEvent.Type.Wheel:

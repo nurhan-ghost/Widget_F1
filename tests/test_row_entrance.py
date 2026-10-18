@@ -45,13 +45,13 @@ class RowEntranceTests(unittest.TestCase):
         content.motion.setCurrentTime(90)
         self.assertGreater(content.effects[0].opacity(), content.effects[3].opacity())
         self.assertEqual(content.effects[5].opacity(), 0)
-        window.scroll.verticalScrollBar().setValue(48)
         window.on_loaded('drivers', dict(self.data['drivers'], source='Saved'))
         self.assertIs(window.scroll.widget(), content)
         self.assertEqual(content.motion.currentTime(), 90)
+        window.scroll.verticalScrollBar().setValue(48)
+        window.on_loaded('drivers', dict(self.data['drivers'], source='Saved'))
         self.assertEqual(window.scroll.verticalScrollBar().value(), 48)
-        content.motion.setCurrentTime(content.motion.duration())
-        self.assertTrue(all(effect.opacity() == 1 for effect in content.effects))
+        self.assertTrue(all(row.graphicsEffect() is None for row in content.rows))
 
     def test_rapid_clicks_and_late_responses_leave_latest_table_visible(self):
         window = self.window
@@ -75,9 +75,9 @@ class RowEntranceTests(unittest.TestCase):
             QTest.qWait(360)
         content = window.scroll.widget()
         self.assertEqual(window.mode, 'teams')
-        self.assertEqual(len(content.effects), 10)
+        self.assertEqual(len(content.rows), 10)
         self.assertEqual(content.motion.state(), QAbstractAnimation.State.Stopped)
-        self.assertTrue(all(effect.opacity() == 1 for effect in content.effects))
+        self.assertTrue(all(row.graphicsEffect() is None for row in content.rows))
 
     def test_loading_message_cancels_then_new_table_animates(self):
         window = self.window

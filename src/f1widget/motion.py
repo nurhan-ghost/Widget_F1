@@ -10,17 +10,20 @@ class StandingsRows(QWidget):
     def __init__(self):
         super().__init__()
         self.effects = []
+        self.rows = []
         self.motion = QVariantAnimation(self)
         self.motion.setDuration(305)
         self.motion.setStartValue(0.0)
         self.motion.setEndValue(305.0)
         self.motion.valueChanged.connect(self.advance)
+        self.motion.finished.connect(self.finish_entrance)
 
     def add_row(self, row):
         effect = QGraphicsOpacityEffect(row)
         effect.setOpacity(0.0)
         row.setGraphicsEffect(effect)
         self.effects.append(effect)
+        self.rows.append(row)
 
     def advance(self, elapsed):
         for index, effect in enumerate(self.effects):
@@ -31,6 +34,17 @@ class StandingsRows(QWidget):
 
     def stop_motion(self):
         self.motion.stop()
+
+    def finish_entrance(self):
+        # Qt's effect source can retain a clipped pixmap when a row moves across
+        # a scroll viewport edge, even at opacity 1. Remove the effect entirely.
+        self.motion.stop()
+        if not self.effects:
+            return
+        self.effects.clear()
+        for row in self.rows:
+            row.setGraphicsEffect(None)
+            row.update()
 
 
 
