@@ -14,7 +14,7 @@ from .theme import STYLE, TEAM_COLORS
 from .fonts import interface_font
 from .profile import ProfileService
 from .driver_card import CardViewport, ProfileWorker
-from .motion import HoverRow
+from .motion import HoverRow, StandingsRows
 from .mode_tabs import ModeTabs
 
 ROW_HEIGHT = 48
@@ -57,6 +57,7 @@ class StandingsWindow(QWidget):
         self.settings = QSettings()
         self.mode = "drivers"
         self.data = {}
+        self.rendered_table = None
         self.workers = {}
         self.selected_driver = None
         self.profile_results = {}
@@ -183,6 +184,7 @@ class StandingsWindow(QWidget):
 
     def quit(self):
         self.reveal_motion.stop()
+        self.stop_rows_motion()
         self.settings.setValue("position", self.pos())
         self.pending_quit = True
         self.timer.stop()
@@ -192,6 +194,8 @@ class StandingsWindow(QWidget):
             QApplication.quit()
 
     def switch_mode(self, mode):
+        if mode == self.mode:
+            return
         self.tabs.set_current(mode)
         self.close_card()
         self.mode = mode
@@ -239,10 +243,17 @@ class StandingsWindow(QWidget):
                 self.message("NO STANDINGS YET\nCheck your connection and refresh.")
 
     def message(self, text):
+        self.stop_rows_motion()
+        self.rendered_table = None
         message = label(text)
         message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         message.setStyleSheet("color: #818B9C; background: transparent;")
         self.scroll.setWidget(message)
+
+    def stop_rows_motion(self):
+        content = self.scroll.widget()
+        if isinstance(content, StandingsRows):
+            content.stop_motion()
 
     def render(self, data):
         current = data["current"]
@@ -260,7 +271,13 @@ class StandingsWindow(QWidget):
         if not entries:
             self.message("STANDINGS NOT AVAILABLE")
             return
-        content = QWidget()
+        signature = (self.mode, current, data.get("previous"))
+        # A cached response must not restart the entrance or reset scrolling.
+        if signature == self.rendered_table:
+            return
+        self.stop_rows_motion()
+        self.rendered_table = signature
+        content = StandingsRows()
         content.setStyleSheet("background: transparent;")
         rows = QVBoxLayout(content)
         rows.setContentsMargins(0, 0, 0, 0)
@@ -319,8 +336,10 @@ class StandingsWindow(QWidget):
             difference.setStyleSheet("color: #818B9C; font-size: 11px;")
             line.addWidget(difference)
             rows.addWidget(row)
+            content.add_row(row)
         rows.addStretch()
         self.scroll.setWidget(content)
+        content.motion.start()
 
     def close_card(self):
         self.selected_driver = None

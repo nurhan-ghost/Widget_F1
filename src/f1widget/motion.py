@@ -1,7 +1,37 @@
 """Interruptible paint-only animations; geometry never changes."""
 from PySide6.QtCore import QEasingCurve, QVariantAnimation, Qt
 from PySide6.QtGui import QColor, QPainter, QPixmap
-from PySide6.QtWidgets import QFrame, QLabel
+from PySide6.QtWidgets import QFrame, QLabel, QWidget, QGraphicsOpacityEffect
+
+
+class StandingsRows(QWidget):
+    """One timeline per table, destroyed with its rows on replacement."""
+
+    def __init__(self):
+        super().__init__()
+        self.effects = []
+        self.motion = QVariantAnimation(self)
+        self.motion.setDuration(305)
+        self.motion.setStartValue(0.0)
+        self.motion.setEndValue(305.0)
+        self.motion.valueChanged.connect(self.advance)
+
+    def add_row(self, row):
+        effect = QGraphicsOpacityEffect(row)
+        effect.setOpacity(0.0)
+        row.setGraphicsEffect(effect)
+        self.effects.append(effect)
+
+    def advance(self, elapsed):
+        for index, effect in enumerate(self.effects):
+            # Only the six visible rows stagger; lower rows are ready on scroll.
+            delay = index * 25 if index < 6 else 0
+            progress = max(0.0, min(1.0, (elapsed - delay) / 180))
+            effect.setOpacity(1 - (1 - progress) ** 3)
+
+    def stop_motion(self):
+        self.motion.stop()
+
 
 
 class HoverRow(QFrame):
